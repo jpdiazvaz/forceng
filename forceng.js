@@ -141,7 +141,6 @@ angular.module('forceng', [])
         params: params
       })
         .success(function (data, status, headers, config) {
-          console.log('Token refreshed');
           oauth.access_token = data.access_token;
           tokenStore.forceOAuth = JSON.stringify(oauth);
           deferred.resolve();
@@ -199,8 +198,6 @@ angular.module('forceng', [])
           oauth.refresh_token = params.refreshToken;
         }
       }
-
-      console.log("useProxy: " + useProxy);
     }
 
     /**
@@ -305,7 +302,6 @@ angular.module('forceng', [])
      *  data:  JSON object to send in the request body - Optional
      */
     function request(obj) {
-
       var method = obj.method || 'GET',
         headers = {},
         url = getRequestBaseURL(),
@@ -342,15 +338,17 @@ angular.module('forceng', [])
           deferred.resolve(data);
         })
         .error(function (data, status, headers, config) {
-          if (status === 401 && oauth.refresh_token) {
+          if ((status === 401 || status === 403) && oauth.refresh_token) {
             refreshToken()
-              .success(function () {
-                // Try again with the new token
-                request(obj);
-              })
-              .error(function () {
-                console.error(data);
-                deferred.reject(data);
+              .then(function() {
+                request(obj).then(function(data) {
+                  deferred.resolve(data);
+                }, function(error) {
+                  deferred.reject(error);
+                });
+              }, function(error) {
+                console.error(error);
+                deferred.reject(error);
               });
           } else {
             console.error(data);
